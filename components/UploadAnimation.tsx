@@ -10,10 +10,10 @@ interface UploadAnimationProps {
 }
 
 const ANIMATION_TIMINGS = {
-  FILE_ANIMATION_DELAY: 400,
-  FILE_ANIMATION_DURATION: 1000,
-  STUDY_PLAN_START_DELAY: 800,
-  STUDY_PLAN_DURATION: 3000,
+  FILE_ANIMATION_DELAY: 0.2, // Reduced delay for snappier feel
+  FILE_ANIMATION_DURATION: 1.0, // Slightly shorter duration
+  STUDY_PLAN_START_DELAY: 0.8,
+  STUDY_PLAN_DURATION: 3.0,
 } as const;
 
 const STAGES = {
@@ -48,16 +48,56 @@ const getFileIcon = (fileName: string) => {
   }
 };
 
-export default function UploadAnimation({ fileNames, onComplete }: UploadAnimationProps) {
+// Function to generate dummy study plan items
+const generateDummyStudyPlan = () => {
+  const topics = [
+    "Introduction to Quantum Physics",
+    "Classical Mechanics Review",
+    "The Schrödinger Equation",
+    "Particle in a Box",
+    "Harmonic Oscillator",
+    "Angular Momentum",
+    "The Hydrogen Atom",
+    "Spin",
+    "Perturbation Theory",
+    "Quantum Entanglement"
+  ];
+
+  const numItems = Math.floor(Math.random() * 4) + 3; // 3 to 6 items
+  const shuffledTopics = topics.sort(() => 0.5 - Math.random()); // Shuffle topics
+  return shuffledTopics.slice(0, numItems).map((topic, index) => ({
+    id: index + 1,
+    topic: topic,
+    //  Add more dummy details if you want (e.g., estimated time, difficulty)
+  }));
+};
+
+const getStageText = (stage: Stage): string => {
+  switch (stage) {
+    case STAGES.UPLOADING:
+      return "Uploading files...";
+    case STAGES.PROCESSING:
+      return "Processing documents...";
+    case STAGES.GENERATING:
+      return "Generating study plan...";
+    case STAGES.COMPLETE:
+      return "Complete!";
+    default:
+      return "";
+  }
+};
+
+const UploadAnimation: React.FC<UploadAnimationProps> = ({ fileNames, onComplete }) => {
   const [showStudyPlan, setShowStudyPlan] = useState(false);
   const [animationStarted, setAnimationStarted] = useState(false);
   const [fileAnimationComplete, setFileAnimationComplete] = useState(false);
   const [studyPlanAnimationStarted, setStudyPlanAnimationStarted] = useState(false);
   const [studyPlanAnimationComplete, setStudyPlanAnimationComplete] = useState(false);
   const [currentStage, setCurrentStage] = useState<Stage>(STAGES.UPLOADING);
+  const [studyPlanItems, setStudyPlanItems] = useState(generateDummyStudyPlan());
 
   // Calculate total file animation duration based on fixed timings
-  const totalFileAnimationDuration = ANIMATION_TIMINGS.FILE_ANIMATION_DURATION;
+  const totalFileAnimationDuration = fileNames.length * ANIMATION_TIMINGS.FILE_ANIMATION_DELAY + ANIMATION_TIMINGS.FILE_ANIMATION_DURATION;
 
   useEffect(() => {
     setAnimationStarted(true);
@@ -69,7 +109,7 @@ export default function UploadAnimation({ fileNames, onComplete }: UploadAnimati
         setFileAnimationComplete(true);
         setShowStudyPlan(true);
         setCurrentStage(STAGES.PROCESSING);
-      }, totalFileAnimationDuration);
+      }, totalFileAnimationDuration * 1000);
       return () => clearTimeout(timer);
     }
   }, [animationStarted, totalFileAnimationDuration]);
@@ -79,7 +119,8 @@ export default function UploadAnimation({ fileNames, onComplete }: UploadAnimati
       const timer = setTimeout(() => {
         setStudyPlanAnimationStarted(true);
         setCurrentStage(STAGES.GENERATING);
-      }, ANIMATION_TIMINGS.STUDY_PLAN_START_DELAY);
+        setStudyPlanItems(generateDummyStudyPlan());
+      }, ANIMATION_TIMINGS.STUDY_PLAN_START_DELAY * 1000);
       return () => clearTimeout(timer);
     }
   }, [showStudyPlan]);
@@ -89,23 +130,11 @@ export default function UploadAnimation({ fileNames, onComplete }: UploadAnimati
       const timer = setTimeout(() => {
         setStudyPlanAnimationComplete(true);
         setCurrentStage(STAGES.COMPLETE);
-      }, ANIMATION_TIMINGS.STUDY_PLAN_DURATION);
+        onComplete?.();
+      }, ANIMATION_TIMINGS.STUDY_PLAN_DURATION * 1000);
       return () => clearTimeout(timer);
     }
-  }, [studyPlanAnimationStarted]);
-
-  const getStageText = (stage: Stage) => {
-    switch (stage) {
-      case STAGES.UPLOADING:
-        return "Uploading Documents...";
-      case STAGES.PROCESSING:
-        return "Processing with AI...";
-      case STAGES.GENERATING:
-        return "Generating Study Plan...";
-      case STAGES.COMPLETE:
-        return "Study Plan Ready!";
-    }
-  };
+  }, [studyPlanAnimationStarted, onComplete]);
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-b from-white to-gray-50">
@@ -113,24 +142,36 @@ export default function UploadAnimation({ fileNames, onComplete }: UploadAnimati
         {/* Central Container */}
         <div className="absolute inset-0 flex items-center justify-center">
           {/* Folder and Study Plan Container */}
-          <motion.div 
+          <motion.div
             className="relative"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
-            {/* Folder */}
+            {/* Folder with upward movement when study plan shows */}
             <motion.div
               className="relative z-10"
-              animate={showStudyPlan ? { y: -100 } : { y: 0 }}
+              animate={{ y: showStudyPlan ? -120 : 0 }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
             >
               <div className="relative bg-white rounded-2xl p-8 shadow-xl border border-gray-100">
-                <Folder 
-                  className="h-32 w-32 text-blue-500" 
-                  strokeWidth={1.5}
-                />
-                
+                <motion.div
+                  animate={!showStudyPlan ? {
+                    scale: [1, 1.05, 1],
+                  } : undefined}
+                  transition={{
+                    duration: 1,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    repeatType: "loop"
+                  }}
+                >
+                  <Folder
+                    className="h-32 w-32 text-blue-500"
+                    strokeWidth={1.5}
+                  />
+                </motion.div>
+
                 {/* Uploading Files Animation */}
                 <AnimatePresence>
                   {animationStarted && !showStudyPlan && fileNames.map((fileName, index) => (
@@ -138,14 +179,14 @@ export default function UploadAnimation({ fileNames, onComplete }: UploadAnimati
                       key={fileName}
                       className="absolute left-0 top-1/2 -translate-y-1/2"
                       initial={{ opacity: 0, x: -200 }}
-                      animate={{ 
+                      animate={{
                         opacity: [0, 1, 1, 0],
-                        x: [-200, 0, 0, 50],
+                        x: [-200, 0, 0, 80], // Increased x offset
                         y: ["-50%", "-50%", "0%", "50%"]
                       }}
                       transition={{
-                        duration: 1.2,
-                        delay: index * 0.4,
+                        duration: ANIMATION_TIMINGS.FILE_ANIMATION_DURATION,
+                        delay: index * ANIMATION_TIMINGS.FILE_ANIMATION_DELAY,
                         times: [0, 0.3, 0.7, 1]
                       }}
                     >
@@ -159,11 +200,22 @@ export default function UploadAnimation({ fileNames, onComplete }: UploadAnimati
                   ))}
                 </AnimatePresence>
               </div>
+                 {/* Stage Text */}
+              <motion.div
+                className="text-center mt-4 text-gray-700"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                aria-live="polite" // For screen readers
+                role="status"      // For screen readers
+              >
+                {getStageText(currentStage)}
+              </motion.div>
             </motion.div>
 
             {/* Connection Line */}
             {showStudyPlan && (
-              <motion.div 
+              <motion.div
                 className="absolute left-1/2 top-[calc(100%+32px)] -translate-x-1/2 w-1"
                 style={{
                   background: "linear-gradient(180deg, #3B82F6 0%, #60A5FA 100%)",
@@ -179,12 +231,12 @@ export default function UploadAnimation({ fileNames, onComplete }: UploadAnimati
             <AnimatePresence>
               {showStudyPlan && (
                 <motion.div
-                  className="absolute top-[200px] left-1/2 -translate-x-1/2"
+                  className="absolute top-[220px] left-1/2 -translate-x-1/2" // Adjusted top position
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.4 }}
                 >
-                  <motion.div
+                  <div
                     className="bg-white rounded-xl shadow-xl border border-gray-100 p-6 w-96"
                   >
                     {!studyPlanAnimationStarted ? (
@@ -206,20 +258,21 @@ export default function UploadAnimation({ fileNames, onComplete }: UploadAnimati
                       </div>
                     ) : (
                       // Study plan content
-                      <div className="space-y-6">
-                        {[1, 2, 3, 4].map((num, index) => (
-                          <motion.div 
-                            key={num}
+                      <div className="space-y-6 overflow-y-auto max-h-[200px]"> {/* Added max-h and overflow-y-auto */}
+                        {studyPlanItems.map((item) => (
+                          <motion.div
+                            key={item.id}
                             className="flex items-center gap-3"
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.5, delay: index * 0.3 }}
+                            transition={{ duration: 0.5, delay: item.id * 0.3 }}
                           >
                             <div className="h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-                              {num}
+                              {item.id}
                             </div>
                             <div className="flex-1">
-                              <div className="h-4 bg-gray-800 rounded-full" />
+                              <div className="text-sm font-medium text-gray-800">{item.topic}</div>
+                              {/* You can add more details here, like a progress bar or description */}
                             </div>
                           </motion.div>
                         ))}
@@ -237,7 +290,7 @@ export default function UploadAnimation({ fileNames, onComplete }: UploadAnimati
                         <CheckCircle2 className="h-6 w-6 text-white" />
                       </motion.div>
                     )}
-                  </motion.div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -246,4 +299,6 @@ export default function UploadAnimation({ fileNames, onComplete }: UploadAnimati
       </div>
     </div>
   );
-}
+};
+
+export default UploadAnimation;
